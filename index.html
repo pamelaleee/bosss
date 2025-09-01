@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>✦ 夢幻四芒星倒計時（全部地圖） ✦</title>
+<style>
+  :root{
+    --bg-a:#ffe9f7; --bg-b:#e9f2ff; --bg-c:#f7ffef;
+    --card:#ffffffcc; --text:#3d2f4b;
+    --accent:#ff78c8; --accent-2:#7aa8ff; --accent-3:#8be9c6; --ring:#ffd7f0;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; color:var(--text); font-family:"Nunito","PingFang TC","Microsoft JhengHei",sans-serif;
+    background:
+      radial-gradient(1200px 800px at 10% -10%, var(--bg-b), transparent 60%),
+      radial-gradient(1000px 600px at 110% 10%, var(--bg-c), transparent 60%),
+      radial-gradient(1000px 1000px at 50% 120%, var(--bg-a), transparent 70%),
+      linear-gradient(180deg, #fff 0%, #fff0 40%, #fff0 60%, #fff 100%);
+  }
+  header{position:sticky; top:0; backdrop-filter:saturate(1.2) blur(6px);
+    background:#ffffffaa; border-bottom:1px dashed #f3c9e8; z-index:5;}
+  .wrap{max-width:1200px; margin:0 auto; padding:16px 18px}
+  h1{margin:.2em 0 .1em; font-weight:900; letter-spacing:.03em}
+  .sub{opacity:.85; font-size:.95rem}
+  .toolbar{display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top:10px}
+  .pill{display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border-radius:999px;
+    background:var(--card); border:1px solid #f2e6ff; box-shadow:0 6px 18px #00000010, inset 0 0 0 1px #ffffffaa;}
+  .btn{cursor:pointer; border:none; border-radius:14px; padding:10px 14px; font-weight:800;
+    background:linear-gradient(180deg, #fff, #ffeaf7); box-shadow:0 8px 20px #ff79c620, 0 0 0 2px var(--ring);}
+  .ghost{background:#ffffff; border:1px dashed #ffc7e8; box-shadow:none}
+  .danger{background:#fff0f5; border:1px dashed #ff9ac7; color:#b0054e}
+
+  .chap{margin:20px 0}
+  .chap h2{display:inline-block; padding:6px 14px; border-radius:999px; background:#fff8;
+    border:1px solid #ffd7f0; box-shadow:0 4px 12px #00000010;}
+  .grid{display:grid; gap:14px; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); margin-top:12px;}
+
+  .card{background:var(--card); border:1px solid #f4e9ff; border-radius:18px;
+    box-shadow:0 10px 26px #00000012, inset 0 0 0 1px #fff; padding:14px;}
+  .card h3{margin:.2em 0 .5em; font-size:1.05rem}
+  .streams{display:flex; flex-direction:column; gap:10px; margin-top:10px}
+  .stream{border:1px dashed #f5cbe8; border-radius:14px; padding:10px; background:#fff;}
+  .badge{font-weight:900; font-size:.9rem; padding:4px 10px; border-radius:999px; background:#ffeaf7; border:1px solid #ffd7f0}
+  .row{display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin:.35rem 0}
+  .row input{width:70px; padding:6px 8px; border-radius:8px; border:1px solid #eadfff}
+  .count{margin-top:6px; font-weight:900; font-size:1.02rem; color:#5c3b8b}
+  .actions{display:flex; gap:6px; flex-wrap:wrap; margin-top:6px}
+
+  /* 飄動四芒星 */
+  .star{position:absolute; width:10px; height:10px; pointer-events:none; opacity:.8; transform:translate(-50%,-50%) scale(.8);
+    filter:drop-shadow(0 0 6px #fff) drop-shadow(0 0 10px #ffdfff);}
+  .star::before,.star::after{content:""; position:absolute; inset:0; background:radial-gradient(circle,#fff 0 40%, #fff0 60%);
+    transform:rotate(45deg);}
+  @keyframes floaty{0%{transform:translate(var(--xStart),var(--yStart)) scale(var(--s)); opacity:0}
+    10%{opacity:.95} 100%{transform:translate(var(--xEnd), calc(var(--yStart) - 140vh)) scale(var(--s)); opacity:0}}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>✦ 夢幻四芒星倒計時（第七～第十章全部地圖） ✦</h1>
+    <div class="sub">每張地圖都在主畫面，可自由新增/刪除分流計時器，支援提前提醒。</div>
+    <div class="toolbar">
+      <div class="pill"><label>提醒音量 <input id="vol" type="range" min="0" max="1" step="0.01" value="0.7"/></label></div>
+      <div class="pill"><label><input id="mute" type="checkbox"> 靜音</label></div>
+    </div>
+  </div>
+</header>
+<div class="wrap" id="app"></div>
+
+<script>
+/* 章節地圖 */
+const MAPS = {
+ "第七章": ["摩奇亞森林 1","扎卡里耶爾交叉路","王陵一層","王陵二層","王陵三層"],
+ "第八章": ["水路橋地區","阿雷魯諾男爵領","魔族收監所第一區","魔族收監所第三區","魔族收監所第四區","魔族收監所第五區"],
+ "第九章": ["女神的古院","佩迪米安外城","魔法師之塔一層","魔法師之塔二層","魔法師之塔三層"],
+ "第十章": ["大教堂懺悔路","大教堂正殿","大教堂大迴廊","大教堂至聖所"]
+};
+const KEY="all_map_timers"; const saved=JSON.parse(localStorage.getItem(KEY)||"{}");
+const store=data=>localStorage.setItem(KEY,JSON.stringify(data));
+
+/* 簡單音效 */
+let actx,master; function audio(){if(!actx){actx=new AudioContext();master=actx.createGain();master.connect(actx.destination);}}
+function playPop(){if(document.getElementById('mute').checked)return; audio();let o=actx.createOscillator(),g=actx.createGain();
+o.type='sine';o.frequency.setValueAtTime(300,actx.currentTime);o.connect(g);g.connect(master);
+g.gain.setValueAtTime(.5,actx.currentTime);g.gain.exponentialRampToValueAtTime(.001,actx.currentTime+.2);
+o.start();o.stop(actx.currentTime+.2);}
+function playChime(){if(document.getElementById('mute').checked)return; audio();let now=actx.currentTime;
+[660,880,990].forEach((f,i)=>{let o=actx.createOscillator(),g=actx.createGain();o.type='triangle';o.frequency.value=f;
+o.connect(g);g.connect(master);g.gain.setValueAtTime(.5,now+i*.1);g.gain.exponentialRampToValueAtTime(.001,now+i*.1+.5);
+o.start(now+i*.1);o.stop(now+i*.1+.5);});}
+
+/* 渲染 */
+const app=document.getElementById("app");
+Object.entries(MAPS).forEach(([chap,maps])=>{
+  const sec=document.createElement("section"); sec.className="chap";
+  sec.innerHTML=`<h2>${chap}</h2><div class="grid"></div>`; app.appendChild(sec);
+  const grid=sec.querySelector(".grid");
+  maps.forEach(map=>{
+    const id=`${chap}-${map}`;
+    const card=document.createElement("div"); card.className="card";
+    card.innerHTML=`
+      <h3>${map}</h3>
+      <div class="actions">
+        <button class="btn" onclick="addStream('${id}')">新增分流</button>
+      </div>
+      <div class="streams" id="${id}-streams"></div>`;
+    grid.appendChild(card);
+    if(!saved[id]){saved[id]=[];}
+    render(id);
+  });
+});
+store(saved);
+
+/* 分流 */
+function render(id){
+  const box=document.getElementById(id+"-streams"); box.innerHTML="";
+  saved[id].forEach((s,idx)=>{
+    const sid=`${id}-${idx}`;
+    const div=document.createElement("div"); div.className="stream";
+    div.innerHTML=`
+      <div class="badge">分流${idx+1}</div>
+      <div class="row"><input id="${sid}-h" type="number" placeholder="時" value="${s.h||0}">
+      <input id="${sid}-m" type="number" placeholder="分" value="${s.m||0}">
+      <input id="${sid}-s" type="number" placeholder="秒" value="${s.s||0}"></div>
+      <div class="row"><small>提前提醒(分)</small><input id="${sid}-a" type="number" value="${s.a||5}"></div>
+      <div class="actions">
+        <button class="btn" onclick="start('${id}',${idx})">開始</button>
+        <button class="btn ghost" onclick="pause('${id}',${idx})">暫停</button>
+        <button class="btn ghost" onclick="reset('${id}',${idx})">重設</button>
+        <button class="btn danger" onclick="delStream('${id}',${idx})">刪除</button>
+      </div>
+      <div class="count" id="${sid}-count">尚未設定</div>`;
+    box.appendChild(div);
+  });
+}
+function addStream(id){playPop();saved[id].push({});store(saved);render(id);}
+function delStream(id,idx){playPop();saved[id].splice(idx,1);store(saved);render(id);}
+
+/* 計時 */
+const timers={};
+function start(id,idx){
+  playPop(); const sid=`${id}-${idx}`,h=+document.getElementById(sid+"-h").value||0,
+  m=+document.getElementById(sid+"-m").value||0,s=+document.getElementById(sid+"-s").value||0,
+  a=+document.getElementById(sid+"-a").value||0,sec=h*3600+m*60+s;
+  if(sec<=0){alert("請輸入時間");return;}
+  const end=Date.now()+sec*1000; saved[id][idx]={h,m,s,a,end};store(saved);
+  clearInterval(timers[sid]);
+  timers[sid]=setInterval(()=>{
+    let remain=Math.max(0,Math.floor((end-Date.now())/1000));
+    document.getElementById(sid+"-count").textContent="剩餘 "+Math.floor(remain/60)+":"+(remain%60).toString().padStart(2,"0");
+    if(remain===a*60){playChime();alert(`${id} 分流${idx+1} 還有 ${a} 分鐘`);}
+    if(remain<=0){clearInterval(timers[sid]);playChime();alert(`${id} 分流${idx+1} 時間到`);}
+  },1000);
+}
+function pause(id,idx){playPop();const sid=`${id}-${idx}`;clearInterval(timers[sid]);}
+function reset(id,idx){playPop();const sid=`${id}-${idx}`;clearInterval(timers[sid]);
+ document.getElementById(sid+"-count").textContent="尚未設定"; saved[id][idx]={};store(saved);}
+</script>
+</body>
+</html>
